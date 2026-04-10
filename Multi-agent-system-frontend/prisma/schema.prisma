@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique  // stored encrypted
+  passwordHash  String
+  role          Role     @default(STUDENT)
+  name          String
+  telegramId    String?  @unique
+  createdAt     DateTime @default(now())
+  profile       StudentProfile?
+  applications  Application[]
+  projectMembers ProjectMember[]
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+model StudentProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  university  String
+  course      Int      // 1-6
+  skills      Json     // {"python": 8, "ml": 7, "react": 6}
+  bio         String?
+  githubUrl   String?
+  resumeUrl   String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Application {
+  id              String   @id @default(cuid())
+  projectName     String
+  geography       String
+  direction       Direction
+  description     String
+  taskDescription String
+  currentStage    String
+  teamDescription String
+  dataAvailable   String
+  yandexTechs     String
+  openSource      Boolean
+  plannedDuration String
+  contactName     String
+  contactEmail    String   // stored encrypted
+  additionalContacts String?
+  status          AppStatus @default(PENDING)
+  score           Json?    // AI scoring result
+  researchResult  Json?    // AI research result
+  createdAt       DateTime @default(now())
+  submittedBy     User?    @relation(fields: [submittedById], references: [id])
+  submittedById   String?
+  project         Project?
+}
+
+enum Direction {
+  EDUCATION
+  HEALTHCARE
+  ECOLOGY
+  CULTURE
+}
+
+enum AppStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  applicationId   String   @unique
+  application     Application @relation(fields: [applicationId], references: [id])
+  name            String
+  status          ProjectStatus @default(ACTIVE)
+  repositoryUrl   String?
+  startDate       DateTime
+  endDate         DateTime
+  summary         Json?
+  members         ProjectMember[]
+  tasks           Task[]
+  chatMessages    ChatMessage[]
+  documents       Document[]
+  infraResources  InfraResource[]
+  createdAt       DateTime @default(now())
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id])
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  tags        Json   @default("[]")
+  priority    Priority @default(MEDIUM)
+  assigneeId  String?
+  assignee    ProjectMember? @relation(fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  comments    TaskComment[]
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model ProjectMember {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+  memberRole String  // "ML Engineer", "Backend", etc.
+  agentScore Json?   // AI matching score breakdown
+  isApproved Boolean @default(false)
+  joinedAt  DateTime @default(now())
+  tasks     Task[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  authorId  String?  // null = AI agent message
+  content   String
+  isAiSummary Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model InfraResource {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  type      String   // "postgresql", "object_storage", "compute"
+  name      String
+  spec      Json     // {cpu: 2, ram: 4, disk: 20}
+  status    String   @default("provisioning")
+  createdAt DateTime @default(now())
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  title     String
+  content   String   // markdown
+  type      String   // "research", "roadmap", "report", "hypothesis"
+  createdAt DateTime @default(now())
+}
